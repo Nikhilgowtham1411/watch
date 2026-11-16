@@ -188,6 +188,14 @@ fun SavedDesignCard(
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
                 ) {
+                    if (!design.imagePath.isNullOrBlank()) {
+                        AsyncImage(
+                            model = design.imagePath,
+                            contentDescription = "Saved wallpaper",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                     Text(
                         text = "10:08",
                         style = WatchFaceTypography.headlineMedium.copy(fontSize = 18.sp),
