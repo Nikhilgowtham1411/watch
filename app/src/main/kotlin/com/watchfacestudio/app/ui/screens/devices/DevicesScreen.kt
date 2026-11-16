@@ -75,7 +75,8 @@ fun DevicesScreen(
     }
 ) {
     val isScanning by viewModel.isScanning.collectAsState()
-    val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    val discoveredDevices by viewModel.visibleDevices.collectAsState()
+    val showAllDevices by viewModel.showAllDevices.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
     val bluetoothState by viewModel.bluetoothState.collectAsState()
 
@@ -202,14 +203,32 @@ fun DevicesScreen(
             }
 
             // Only display results received from the real BLE scanner.
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (showAllDevices) "Showing all nearby BLE devices" else "Showing nearby watches only",
+                        style = WatchFaceTypography.bodySmall,
+                        color = TextSecondary
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = showAllDevices,
+                        onCheckedChange = { viewModel.setShowAllDevices(it) }
+                    )
+                }
+            }
+
             if (discoveredDevices.isEmpty() && !isScanning && bluetoothState != BluetoothState.DISABLED) {
                 item {
                     GlassCard(modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("No nearby devices found", style = WatchFaceTypography.titleSmall, color = TextPrimary)
+                            Text(if (showAllDevices) "No nearby devices found" else "No nearby watches found", style = WatchFaceTypography.titleSmall, color = TextPrimary)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "Make the device discoverable and scan again.",
+                                "Keep the watch awake and close to the phone, disconnect it from other apps if needed, then scan again. Turn on the switch to see all BLE devices.",
                                 style = WatchFaceTypography.bodySmall,
                                 color = TextSecondary,
                                 textAlign = TextAlign.Center

@@ -12,6 +12,10 @@ import com.watchfacestudio.app.bluetooth.scanner.BleScanner
 import com.watchfacestudio.app.data.local.db.entities.DeviceEntity
 import com.watchfacestudio.app.data.model.ScreenShape
 import com.watchfacestudio.app.data.repository.DeviceRepository
+import com.watchfacestudio.app.bluetooth.scanner.WatchClassifier
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
@@ -29,6 +33,21 @@ class DevicesViewModel(
 
     val isScanning: StateFlow<Boolean> = bleScanner.isScanning
     val discoveredDevices: StateFlow<List<DiscoveredDevice>> = bleScanner.discoveredDevices
+
+    private val _showAllDevices = MutableStateFlow(false)
+    val showAllDevices: StateFlow<Boolean> = _showAllDevices.asStateFlow()
+
+    /** Nearby devices, watches only unless the user asks to see everything. Strongest signal first. */
+    val visibleDevices: StateFlow<List<DiscoveredDevice>> = combine(
+        bleScanner.discoveredDevices, _showAllDevices
+    ) { devices, showAll ->
+        devices
+            .filter { WatchClassifier.isNearby(it) }
+            .filter { showAll || WatchClassifier.isLikelyWatch(it) }
+            .sortedByDescending { it.rssi }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setShowAllDevices(show: Boolean) { _showAllDevices.value = show }
     val connectionState: StateFlow<ConnectionState> = connectionManager.connectionState
     val bluetoothState: StateFlow<BluetoothState> = bluetoothStateMonitor.bluetoothState
 

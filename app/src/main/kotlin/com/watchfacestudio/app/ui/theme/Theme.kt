@@ -70,7 +70,11 @@ fun WatchFaceStudioTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = WatchFaceTypography,
-        shapes = WatchFaceShapes,
-        content = content
-    )
+        shapes = WatchFaceShapes
+    ) {
+        androidx.compose.material3.ProvideTextStyle(
+            value = androidx.compose.ui.text.TextStyle(fontFamily = AppFontFamily),
+            content = content
+        )
+    }
 }
