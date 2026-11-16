@@ -76,6 +76,7 @@ fun DevicesScreen(
 ) {
     val isScanning by viewModel.isScanning.collectAsState()
     val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
     val bluetoothState by viewModel.bluetoothState.collectAsState()
 
     val permissionLauncher = rememberLauncherForActivityResult(
