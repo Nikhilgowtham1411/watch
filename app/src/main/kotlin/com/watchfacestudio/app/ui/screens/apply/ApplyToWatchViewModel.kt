@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 sealed class ApplyState {
@@ -31,6 +33,12 @@ class ApplyToWatchViewModel(
 
     private val _currentDesign = MutableStateFlow<DesignEntity?>(null)
     val currentDesign: StateFlow<DesignEntity?> = _currentDesign.asStateFlow()
+
+    val selectedDevice: StateFlow<DeviceEntity?> = deviceRepository.getPrimaryDevice().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = null
+    )
 
     fun startSync(designId: String) {
         viewModelScope.launch {
