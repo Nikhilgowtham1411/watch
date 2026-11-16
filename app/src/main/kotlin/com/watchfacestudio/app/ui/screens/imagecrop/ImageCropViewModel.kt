@@ -103,13 +103,18 @@ class ImageCropViewModel(
                         transformed
                     }
 
-                    val cacheFile = File(context.cacheDir, "crop_${UUID.randomUUID()}.png")
-                    val out = FileOutputStream(cacheFile)
-                    cropped.compress(Bitmap.CompressFormat.PNG, 95, out)
-                    out.flush()
-                    out.close()
-
-                    cacheFile.absolutePath
+                    val wallpaperDir = File(context.filesDir, "wallpapers").apply { mkdirs() }
+                    val outputFile = File(wallpaperDir, "wallpaper_${UUID.randomUUID()}.png")
+                    FileOutputStream(outputFile).use { out ->
+                        if (!cropped.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                            throw IllegalStateException("Unable to save wallpaper image")
+                        }
+                        out.flush()
+                    }
+                    if (cropped !== transformed && !cropped.isRecycled) cropped.recycle()
+                    if (transformed !== originalBitmap && !transformed.isRecycled) transformed.recycle()
+                    if (!originalBitmap.isRecycled) originalBitmap.recycle()
+                    outputFile.absolutePath
                 } catch (e: Exception) {
                     null
                 }
