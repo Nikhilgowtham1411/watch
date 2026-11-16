@@ -21,25 +21,17 @@ class WatchFaceInstaller(
         device: DeviceEntity?,
         onProgress: (Float, String) -> Unit
     ): InstallResult {
-        onProgress(0.15f, "Checking device connection...")
-        delay(400)
+        if (device == null) {
+            return InstallResult.Error("No verified smartwatch is selected. Scan for nearby devices first.")
+        }
+        if (device.compatibilityStatus != "Verified profile") {
+            return InstallResult.Error("This device has connected, but its watch-face format and installation method have not been verified.")
+        }
 
-        onProgress(0.40f, "Validating watch profile...")
-        delay(400)
-
-        onProgress(0.70f, "Rendering high-res watch face...")
-        val exportedFile = exporter.exportWatchFace(design)
-        delay(500)
-
-        onProgress(0.90f, "Synchronizing watch face assets...")
-        delay(600)
-
-        onProgress(1.0f, "Completed")
-        val watchName = device?.name ?: "Smartwatch"
-
-        return InstallResult.Success(
-            message = "Your custom watch face has been successfully synced to $watchName.",
-            watchName = watchName
-        )
+        // A BLE connection alone does not implement a watch-face transfer protocol.
+        // Never report success until a manufacturer-specific installer is implemented
+        // and the target watch confirms the installation.
+        return InstallResult.Error("Watch-face installation is not implemented for this device yet. The app will not report a false success.")
     }
+
 }
