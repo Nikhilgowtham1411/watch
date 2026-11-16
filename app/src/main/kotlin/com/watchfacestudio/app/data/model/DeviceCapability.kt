@@ -1,0 +1,16 @@
+package com.watchfacestudio.app.data.model
+
+enum class DeviceCapability {
+    ALWAYS_ON_DISPLAY,
+    HEART_RATE_SENSOR,
+    STEP_COUNTER,
+    WEATHER_DATA,
+    NOTIFICATIONS,
+    BATTERY_INFO,
+    CALORIE_TRACKING,
+    DISTANCE_TRACKING,
+    CUSTOM_WATCH_FACE,
+    COMPLICATION_SUPPORT,
+    TOUCH_SCREEN,
+    ROTATING_BEZEL
+}
