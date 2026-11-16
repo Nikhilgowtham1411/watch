@@ -63,10 +63,10 @@ fun ApplyToWatchScreen(
     val applyState by viewModel.applyState.collectAsState()
     val design by viewModel.currentDesign.collectAsState()
     val selectedDevice by viewModel.selectedDevice.collectAsState()
-    val displayWidth = selectedDevice?.screenWidth ?: 0
-    val displayHeight = selectedDevice?.screenHeight ?: 0
+    val displayWidth = selectedDevice?.screenWidth?.takeIf { it > 0 } ?: (design?.canvasWidth ?: 0)
+    val displayHeight = selectedDevice?.screenHeight?.takeIf { it > 0 } ?: (design?.canvasHeight ?: 0)
     val displayAspect = if (displayWidth > 0 && displayHeight > 0) displayWidth.toFloat() / displayHeight.toFloat() else null
-    val displayShape = selectedDevice?.screenShape ?: com.watchfacestudio.app.data.model.ScreenShape.RECTANGULAR
+    val displayShape = selectedDevice?.screenShape ?: design?.canvasShape ?: com.watchfacestudio.app.data.model.ScreenShape.RECTANGULAR
 
     LaunchedEffect(designId) {
         viewModel.startSync(designId)
