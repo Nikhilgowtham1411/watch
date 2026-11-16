@@ -1,5 +1,6 @@
 package com.watchfacestudio.app.ui.screens.apply
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +72,35 @@ fun ApplyToWatchScreen(
 
     LaunchedEffect(designId) {
         viewModel.startSync(designId)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var handoffMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    fun handoff(share: Boolean) {
+        val d = design ?: return
+        if (busy) return
+        busy = true
+        scope.launch {
+            try {
+                val file = WatchFaceStudioApp.instance.container.watchFaceExporter.exportWatchFace(d)
+                val uri = com.watchfacestudio.app.export.WatchFaceShare.saveToGallery(context, file)
+                if (uri == null) {
+                    handoffMessage = "Could not save the image."
+                } else if (share) {
+                    com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, uri)
+                    handoffMessage = null
+                } else {
+                    handoffMessage = "Saved to Pictures/WatchFaceStudio. Open your watch's app and choose this image as the watch face."
+                }
+            } catch (e: Exception) {
+                handoffMessage = "Export failed: ${e.message}"
+            } finally {
+                busy = false
+            }
+        }
     }
 
     Column(
@@ -236,7 +267,24 @@ fun ApplyToWatchScreen(
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     PrimaryButton(
+                        text = "Send to watch app",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { handoff(share = true) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Save image to gallery",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { handoff(share = false) }
+                    )
+                    handoffMessage?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(it, style = WatchFaceTypography.bodySmall, color = TextSecondary, textAlign = TextAlign.Center)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
                         text = "Back to Devices",
+                        modifier = Modifier.fillMaxWidth(),
                         onClick = onBackClick
                     )
                     Spacer(modifier = Modifier.height(12.dp))
