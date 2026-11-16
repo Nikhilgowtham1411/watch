@@ -314,7 +314,7 @@ fun DeviceCardItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Watch,
+                    imageVector = Icons.Default.Bluetooth,
                     contentDescription = null,
                     tint = if (isConnected) Primary else TextSecondary,
                     modifier = Modifier.size(26.dp)
