@@ -23,6 +23,8 @@ import com.watchfacestudio.app.ui.theme.WatchFaceTypography
 @Composable
 fun BackgroundPanel(
     state: EditorState,
+    onBlurChange: (Float) -> Unit,
+    onBrightnessChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -56,7 +58,7 @@ fun BackgroundPanel(
         }
         Slider(
             value = state.bgBlur,
-            onValueChange = {},
+            onValueChange = onBlurChange,
             valueRange = 0f..25f,
             colors = SliderDefaults.colors(
                 thumbColor = Primary,
@@ -86,7 +88,7 @@ fun BackgroundPanel(
         }
         Slider(
             value = state.bgBrightness,
-            onValueChange = {},
+            onValueChange = onBrightnessChange,
             valueRange = 0.4f..1.4f,
             colors = SliderDefaults.colors(
                 thumbColor = Primary,
