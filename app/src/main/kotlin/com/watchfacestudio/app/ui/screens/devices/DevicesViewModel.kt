@@ -15,6 +15,8 @@ import com.watchfacestudio.app.data.repository.DeviceRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 
 class DevicesViewModel(
@@ -50,22 +52,32 @@ class DevicesViewModel(
 
     fun connectToDevice(device: DiscoveredDevice) {
         viewModelScope.launch {
+            connectionManager.connect(device.address)
+            val result = withTimeoutOrNull(20_000L) {
+                connectionManager.connectionState.first { state ->
+                    state is ConnectionState.Connected || state is ConnectionState.Failed
+                }
+            }
+            // Only persist a verified watch profile after the BLE GATT connection succeeds.
+            val connected = result as? ConnectionState.Connected ?: return@launch
+            val profile = device.deviceInfo ?: return@launch
+            if (!profile.supportsCustomWatchFace || connected.device.address != device.address) return@launch
+
             val entity = DeviceEntity(
                 id = device.address,
                 bluetoothAddress = device.address,
-                name = device.name ?: device.deviceInfo?.model ?: "Smartwatch",
-                brand = device.deviceInfo?.brand ?: "Generic",
-                model = device.deviceInfo?.model ?: "Smartwatch",
-                screenWidth = device.deviceInfo?.screenWidth ?: 360,
-                screenHeight = device.deviceInfo?.screenHeight ?: 360,
-                screenShape = device.deviceInfo?.screenShape ?: ScreenShape.CIRCULAR,
-                compatibilityStatus = "Compatible",
-                installMethod = device.deviceInfo?.installMethod?.name ?: "COMPANION_APP",
+                name = device.name ?: profile.model,
+                brand = profile.brand,
+                model = profile.model,
+                screenWidth = profile.screenWidth,
+                screenHeight = profile.screenHeight,
+                screenShape = profile.screenShape,
+                compatibilityStatus = "Verified profile",
+                installMethod = profile.installMethod.name,
                 lastConnectedAt = System.currentTimeMillis(),
                 isPrimary = true
             )
             deviceRepository.setPrimaryDevice(entity)
-            connectionManager.connect(device.address)
         }
     }
 
