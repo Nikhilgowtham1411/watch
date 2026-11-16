@@ -60,20 +60,22 @@ class DevicesViewModel(
             }
             // Only persist a verified watch profile after the BLE GATT connection succeeds.
             val connected = result as? ConnectionState.Connected ?: return@launch
-            val profile = device.deviceInfo ?: return@launch
-            if (!profile.supportsCustomWatchFace || connected.device.address != device.address) return@launch
+            if (connected.device.address != device.address) return@launch
+            val profile = device.deviceInfo
 
+            // Keep the selected BLE device across navigation, even when its
+            // watch-face protocol is unknown. Unknown never means compatible.
             val entity = DeviceEntity(
                 id = device.address,
                 bluetoothAddress = device.address,
-                name = device.name ?: profile.model,
-                brand = profile.brand,
-                model = profile.model,
-                screenWidth = profile.screenWidth,
-                screenHeight = profile.screenHeight,
-                screenShape = profile.screenShape,
-                compatibilityStatus = "Verified profile",
-                installMethod = profile.installMethod.name,
+                name = device.name?.takeIf { it.isNotBlank() } ?: "Unknown BLE device",
+                brand = profile?.brand ?: "Unknown",
+                model = profile?.model ?: "BLE device",
+                screenWidth = profile?.screenWidth ?: 0,
+                screenHeight = profile?.screenHeight ?: 0,
+                screenShape = profile?.screenShape ?: ScreenShape.RECTANGULAR,
+                compatibilityStatus = if (profile?.supportsCustomWatchFace == true) "Verified profile" else "Not verified",
+                installMethod = profile?.installMethod?.name ?: "UNSUPPORTED",
                 lastConnectedAt = System.currentTimeMillis(),
                 isPrimary = true
             )
