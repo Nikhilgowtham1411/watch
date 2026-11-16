@@ -9,6 +9,7 @@ import com.watchfacestudio.app.data.repository.DeviceRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val designRepository: DesignRepository,
@@ -20,6 +21,13 @@ class HomeViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = emptyList()
     )
+
+    init {
+        // Remove the demo device seeded by older prototype builds.
+        viewModelScope.launch {
+            deviceRepository.removeDevice("default-noise-pro-5")
+        }
+    }
 
     val primaryDevice: StateFlow<DeviceEntity?> = deviceRepository.getPrimaryDevice().stateIn(
         scope = viewModelScope,
