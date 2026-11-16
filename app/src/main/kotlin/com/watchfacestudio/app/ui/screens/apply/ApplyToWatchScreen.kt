@@ -31,6 +31,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.width
 import com.watchfacestudio.app.WatchFaceStudioApp
 import com.watchfacestudio.app.ui.appViewModel
 import coil3.compose.AsyncImage
@@ -60,6 +62,11 @@ fun ApplyToWatchScreen(
 ) {
     val applyState by viewModel.applyState.collectAsState()
     val design by viewModel.currentDesign.collectAsState()
+    val selectedDevice by viewModel.selectedDevice.collectAsState()
+    val displayWidth = selectedDevice?.screenWidth ?: 0
+    val displayHeight = selectedDevice?.screenHeight ?: 0
+    val displayAspect = if (displayWidth > 0 && displayHeight > 0) displayWidth.toFloat() / displayHeight.toFloat() else null
+    val displayShape = selectedDevice?.screenShape ?: com.watchfacestudio.app.data.model.ScreenShape.RECTANGULAR
 
     LaunchedEffect(designId) {
         viewModel.startSync(designId)
@@ -100,8 +107,10 @@ fun ApplyToWatchScreen(
         ) {
             // Watch Face Mockup
             WatchPreview(
-                modifier = Modifier.size(200.dp),
-                bezelWidth = 8.dp
+                screenShape = displayShape,
+                modifier = Modifier.size(width = 200.dp, height = if (displayAspect != null) (200f / displayAspect).coerceIn(100f, 400f).dp else 244.dp),
+                bezelWidth = 8.dp,
+                aspectRatioOverride = displayAspect
             ) {
                 Box(
                     modifier = Modifier
@@ -214,21 +223,27 @@ fun ApplyToWatchScreen(
 
                 is ApplyState.Failed -> {
                     Text(
-                        text = "Synchronization Failed",
+                        text = if (state.reason.contains("format", ignoreCase = true) || state.reason.contains("protocol", ignoreCase = true)) "Device Connected • Install Not Supported Yet" else "Unable to Apply Watch Face",
                         style = WatchFaceTypography.headlineMedium,
                         color = Color(0xFFEF4444)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = state.reason,
+                        text = if (state.reason.contains("format", ignoreCase = true) || state.reason.contains("protocol", ignoreCase = true)) "Your watch is connected. Its display size is shown when a verified device profile is available. Direct watch-face installation needs the manufacturer's supported format or companion app. You can still edit and export your design." else state.reason,
                         style = WatchFaceTypography.bodyMedium,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     PrimaryButton(
-                        text = "Retry",
-                        onClick = { viewModel.startSync(designId) }
+                        text = "Back to Devices",
+                        onClick = onBackClick
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Edit Design",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onEditAgainClick
                     )
                 }
             }
