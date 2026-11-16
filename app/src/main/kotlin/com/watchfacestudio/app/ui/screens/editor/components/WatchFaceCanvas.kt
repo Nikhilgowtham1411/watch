@@ -23,6 +23,9 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -52,7 +55,13 @@ fun WatchFaceCanvas(
                     model = state.imagePath,
                     contentDescription = "Watch Face Background",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    colorFilter = ColorFilter.colorMatrix(ColorMatrix(floatArrayOf(
+                        state.bgBrightness, 0f, 0f, 0f, 0f,
+                        0f, state.bgBrightness, 0f, 0f, 0f,
+                        0f, 0f, state.bgBrightness, 0f, 0f,
+                        0f, 0f, 0f, 1f, 0f
+                    ))),
+                    modifier = Modifier.fillMaxSize().blur(state.bgBlur.dp)
                 )
             } else {
                 Box(
