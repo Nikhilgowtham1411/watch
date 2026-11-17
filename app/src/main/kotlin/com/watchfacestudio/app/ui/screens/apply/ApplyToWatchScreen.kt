@@ -85,7 +85,11 @@ fun ApplyToWatchScreen(
         busy = true
         scope.launch {
             try {
-                val file = WatchFaceStudioApp.instance.container.watchFaceExporter.exportWatchFace(d)
+                val file = WatchFaceStudioApp.instance.container.watchFaceExporter.exportWatchFace(
+                    d,
+                    targetWidth = selectedDevice?.screenWidth?.takeIf { it > 0 },
+                    targetHeight = selectedDevice?.screenHeight?.takeIf { it > 0 }
+                )
                 val uri = com.watchfacestudio.app.export.WatchFaceShare.saveToGallery(context, file)
                 if (uri == null) {
                     handoffMessage = "Could not save the image."
@@ -93,7 +97,7 @@ fun ApplyToWatchScreen(
                     com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, uri)
                     handoffMessage = null
                 } else {
-                    handoffMessage = "Saved to Pictures/WatchFaceStudio. Open your watch's app and choose this image as the watch face."
+                    handoffMessage = "Saved to Pictures/WatchFaceStudio at ${selectedDevice?.screenWidth?.takeIf { it > 0 } ?: d.canvasWidth} × ${selectedDevice?.screenHeight?.takeIf { it > 0 } ?: d.canvasHeight}. Open your watch companion app and select this image as its watch face."
                 }
             } catch (e: Exception) {
                 handoffMessage = "Export failed: ${e.message}"
