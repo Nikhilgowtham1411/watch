@@ -37,9 +37,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.provider.Settings
+import com.watchfacestudio.app.bluetooth.connection.ConnectionState
+import com.watchfacestudio.app.ui.components.SecondaryButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -78,7 +87,21 @@ fun DevicesScreen(
     val discoveredDevices by viewModel.visibleDevices.collectAsState()
     val showAllDevices by viewModel.showAllDevices.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
+    val gattInfo by viewModel.gattInfo.collectAsState()
+    val primaryDevice by viewModel.primaryDevice.collectAsState()
+    val connectingAddress by viewModel.connectingAddress.collectAsState()
     val bluetoothState by viewModel.bluetoothState.collectAsState()
+    val context = LocalContext.current
+    var locationOff by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isScanning, bluetoothState) {
+        locationOff = viewModel.isLocationOff()
+    }
+
+    // Stop radio scanning when leaving the screen.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.stopScanning() }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -165,7 +188,7 @@ fun DevicesScreen(
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
-                        text = if (isScanning) "Searching for nearby Bluetooth devices..." else "Device Discovery Ready",
+                        text = if (isScanning) "Searching for nearby watches..." else "Scan stopped",
                         style = WatchFaceTypography.titleMedium,
                         color = TextPrimary
                     )
@@ -173,7 +196,7 @@ fun DevicesScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Nearby discoverable BLE devices will appear here.\nSome devices may not advertise while idle.",
+                        text = "Only watches that are advertising right now are listed.\nA watch connected to its own app stops advertising — disconnect it there first.",
                         style = WatchFaceTypography.bodySmall,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
@@ -194,6 +217,54 @@ fun DevicesScreen(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = "Turn on Bluetooth to discover nearby devices.",
+                                style = WatchFaceTypography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (locationOff) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            Text(
+                                text = "Location is turned off",
+                                style = WatchFaceTypography.titleSmall,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "This Android version returns no Bluetooth scan results while Location is off. Turn it on, then come back and scan again.",
+                                style = WatchFaceTypography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            SecondaryButton(
+                                text = "Open Location settings",
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            (connectionState as? ConnectionState.Failed)?.let { failed ->
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            Text(
+                                text = "Could not connect",
+                                style = WatchFaceTypography.titleSmall,
+                                color = Color(0xFFEF4444)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = failed.reason,
                                 style = WatchFaceTypography.bodySmall,
                                 color = TextSecondary
                             )
@@ -238,15 +309,35 @@ fun DevicesScreen(
                 }
             }
 
+            // A connected watch stops advertising, so it would vanish from the scan list.
+            val connectedNow = connectionState as? ConnectionState.Connected
+            if (connectedNow != null && discoveredDevices.none { it.address == connectedNow.device.address }) {
+                item(key = "connected-${connectedNow.device.address}") {
+                    DeviceCardItem(
+                        name = primaryDevice?.takeIf { it.bluetoothAddress == connectedNow.device.address }?.name
+                            ?: "Connected watch",
+                        address = connectedNow.device.address,
+                        rssi = 0,
+                        isConnected = true,
+                        batteryPercent = gattInfo?.batteryPercent,
+                        onClick = { viewModel.disconnect() }
+                    )
+                }
+            }
+
             items(discoveredDevices, key = { it.address }) { device ->
                 val connectedDevice = connectionState as? com.watchfacestudio.app.bluetooth.connection.ConnectionState.Connected
                 val isConnected = connectedDevice?.device?.address == device.address
                 DeviceCardItem(
-                    name = device.name?.takeIf { it.isNotBlank() } ?: "Unknown BLE device",
+                    name = device.name?.takeIf { it.isNotBlank() } ?: "Unnamed device",
                     address = device.address,
                     rssi = device.rssi,
                     isConnected = isConnected,
-                    onClick = { viewModel.connectToDevice(device) }
+                    isConnecting = connectingAddress == device.address,
+                    batteryPercent = if (isConnected) gattInfo?.batteryPercent else null,
+                    onClick = {
+                        if (isConnected) viewModel.disconnect() else viewModel.connectToDevice(device)
+                    }
                 )
             }
 
@@ -313,6 +404,8 @@ fun DeviceCardItem(
     address: String,
     rssi: Int,
     isConnected: Boolean,
+    isConnecting: Boolean = false,
+    batteryPercent: Int? = null,
     onClick: () -> Unit
 ) {
     GlassCard(
@@ -350,13 +443,25 @@ fun DeviceCardItem(
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = if (isConnected) "Connected • RSSI $rssi dBm" else "RSSI $rssi dBm • Tap to connect",
+                    text = when {
+                        isConnecting -> "Connecting..."
+                        isConnected -> "Connected" +
+                            (batteryPercent?.let { " • Battery $it%" } ?: "") +
+                            " • Tap to disconnect"
+                        else -> "Signal $rssi dBm • Tap to connect"
+                    },
                     style = WatchFaceTypography.bodySmall,
                     color = if (isConnected) Success else TextSecondary
                 )
             }
 
-            if (isConnected) {
+            if (isConnecting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = Primary,
+                    strokeWidth = 2.dp
+                )
+            } else if (isConnected) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Connected",

@@ -40,6 +40,28 @@ object WatchFaceShare {
         }
     }
 
+    /**
+     * Sends the image straight to the watch's own app. If that app does not
+     * accept shared images it is simply opened, so the user can pick the saved
+     * picture there. Returns true when the image was handed over directly.
+     */
+    fun sendToCompanion(context: Context, uri: Uri, packageName: String): Boolean {
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "image/png"
+            setPackage(packageName)
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        if (send.resolveActivity(context.packageManager) != null) {
+            context.startActivity(send)
+            return true
+        }
+        context.packageManager.getLaunchIntentForPackage(packageName)?.let {
+            context.startActivity(it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        return false
+    }
+
     fun shareImage(context: Context, uri: Uri) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"

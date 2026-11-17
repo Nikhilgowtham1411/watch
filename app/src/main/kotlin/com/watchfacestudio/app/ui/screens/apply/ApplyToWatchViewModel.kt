@@ -19,6 +19,13 @@ import kotlinx.coroutines.launch
 sealed class ApplyState {
     data class InProgress(val progress: Float, val statusMessage: String) : ApplyState()
     data class Completed(val message: String, val watchName: String) : ApplyState()
+    data class ReadyToSend(
+        val imageUri: android.net.Uri,
+        val width: Int,
+        val height: Int,
+        val companion: com.watchfacestudio.app.export.WatchCompanionApps.Companion?,
+        val watchName: String
+    ) : ApplyState()
     data class Failed(val reason: String) : ApplyState()
 }
 
@@ -64,8 +71,14 @@ class ApplyToWatchViewModel(
                 is InstallResult.Success -> {
                     _applyState.value = ApplyState.Completed(result.message, result.watchName)
                 }
-                is InstallResult.OpenCompanion -> {
-                    _applyState.value = ApplyState.Completed("Watch face package prepared for companion app", result.packageName ?: "Watch")
+                is InstallResult.ReadyToSend -> {
+                    _applyState.value = ApplyState.ReadyToSend(
+                        imageUri = result.imageUri,
+                        width = result.width,
+                        height = result.height,
+                        companion = result.companion,
+                        watchName = result.watchName
+                    )
                 }
                 is InstallResult.Error -> {
                     _applyState.value = ApplyState.Failed(result.reason)

@@ -2,6 +2,8 @@ package com.watchfacestudio.app.ui.screens.apply
 
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -134,6 +136,7 @@ fun ApplyToWatchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -251,6 +254,87 @@ fun ApplyToWatchScreen(
                         text = "Edit Again",
                         modifier = Modifier.fillMaxWidth(),
                         onClick = onEditAgainClick
+                    )
+                }
+
+                is ApplyState.ReadyToSend -> {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Success),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Watch face ready",
+                        style = WatchFaceTypography.headlineMedium,
+                        color = TextPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val companionLabel = state.companion?.label
+                    Text(
+                        text = "Saved as ${state.width} × ${state.height} in Pictures/WatchFaceStudio. " +
+                            if (companionLabel != null) {
+                                "Open $companionLabel, go to your watch's custom watch face / gallery option, and pick this image. $companionLabel sends it to ${state.watchName}."
+                            } else {
+                                "Open your watch's own app and pick this image as the watch face."
+                            },
+                        style = WatchFaceTypography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    PrimaryButton(
+                        text = if (companionLabel != null) "Open $companionLabel" else "Send to watch app",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            val pkg = state.companion?.packageName
+                            if (pkg != null) {
+                                com.watchfacestudio.app.export.WatchFaceShare.sendToCompanion(context, state.imageUri, pkg)
+                            } else {
+                                com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, state.imageUri)
+                            }
+                        }
+                    )
+
+                    if (companionLabel != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        SecondaryButton(
+                            text = "Choose another app",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, state.imageUri) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SecondaryButton(
+                        text = "Edit Design",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onEditAgainClick
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SecondaryButton(
+                        text = "Done",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onDoneClick
                     )
                 }
 

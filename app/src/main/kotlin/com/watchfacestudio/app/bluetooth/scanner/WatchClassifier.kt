@@ -13,6 +13,7 @@ import com.watchfacestudio.app.bluetooth.model.DiscoveredDevice
 object WatchClassifier {
 
     private const val HEART_RATE_SERVICE = "0000180d"
+    private const val MOYOUNG_SERVICE = "0000feea"
 
     private val nameKeywords = listOf(
         "watch", "band", "fit", "wear", "smart", "gear", "ticwatch",
@@ -35,8 +36,12 @@ object WatchClassifier {
         if (name.isBlank()) return false
         if (excludedKeywords.any { containsWord(name, it) }) return false
         if (nameKeywords.any { name.contains(it) }) return true
-        // Standard Heart Rate service is advertised by most watches and bands.
-        return device.serviceUuids.any { it.uuid.toString().startsWith(HEART_RATE_SERVICE) }
+        // Standard Heart Rate service and the MoYoung / Da Fit data service are
+        // advertised by most watches and bands.
+        return device.serviceUuids.any {
+            val uuid = it.uuid.toString()
+            uuid.startsWith(HEART_RATE_SERVICE) || uuid.startsWith(MOYOUNG_SERVICE)
+        }
     }
 
     fun isNearby(device: DiscoveredDevice): Boolean = device.rssi >= NEARBY_RSSI
