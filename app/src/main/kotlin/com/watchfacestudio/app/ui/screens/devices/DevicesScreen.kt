@@ -28,19 +28,27 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Watch
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.provider.Settings
+import com.watchfacestudio.app.bluetooth.connection.ConnectionState
+import com.watchfacestudio.app.ui.components.SecondaryButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,10 +60,7 @@ import com.watchfacestudio.app.WatchFaceStudioApp
 import com.watchfacestudio.app.ui.appViewModel
 import com.watchfacestudio.app.bluetooth.model.BluetoothState
 import com.watchfacestudio.app.bluetooth.model.DiscoveredDevice
-import com.watchfacestudio.app.data.local.db.entities.DeviceEntity
-import com.watchfacestudio.app.data.model.ScreenShape
 import com.watchfacestudio.app.ui.components.GlassCard
-import com.watchfacestudio.app.ui.components.PrimaryButton
 import com.watchfacestudio.app.ui.theme.Background
 import com.watchfacestudio.app.ui.theme.CardBackground
 import com.watchfacestudio.app.ui.theme.Primary
@@ -79,9 +84,24 @@ fun DevicesScreen(
     }
 ) {
     val isScanning by viewModel.isScanning.collectAsState()
-    val discoveredDevices by viewModel.discoveredDevices.collectAsState()
+    val discoveredDevices by viewModel.visibleDevices.collectAsState()
+    val showAllDevices by viewModel.showAllDevices.collectAsState()
+    val connectionState by viewModel.connectionState.collectAsState()
+    val gattInfo by viewModel.gattInfo.collectAsState()
     val primaryDevice by viewModel.primaryDevice.collectAsState()
+    val connectingAddress by viewModel.connectingAddress.collectAsState()
     val bluetoothState by viewModel.bluetoothState.collectAsState()
+    val context = LocalContext.current
+    var locationOff by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isScanning, bluetoothState) {
+        locationOff = viewModel.isLocationOff()
+    }
+
+    // Stop radio scanning when leaving the screen.
+    DisposableEffect(Unit) {
+        onDispose { viewModel.stopScanning() }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -168,7 +188,7 @@ fun DevicesScreen(
                     Spacer(modifier = Modifier.height(20.dp))
 
                     Text(
-                        text = if (isScanning) "Searching for nearby watches..." else "Device Discovery Ready",
+                        text = if (isScanning) "Searching for nearby watches..." else "Scan stopped",
                         style = WatchFaceTypography.titleMedium,
                         color = TextPrimary
                     )
@@ -176,7 +196,7 @@ fun DevicesScreen(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = "Make sure your watch is in pairing mode\nand close to your phone.",
+                        text = "Only watches that are advertising right now are listed.\nA watch connected to its own app stops advertising — disconnect it there first.",
                         style = WatchFaceTypography.bodySmall,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
@@ -196,7 +216,7 @@ fun DevicesScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Turn on Bluetooth to scan for and connect your smartwatch.",
+                                text = "Turn on Bluetooth to discover nearby devices.",
                                 style = WatchFaceTypography.bodySmall,
                                 color = TextSecondary
                             )
@@ -205,52 +225,119 @@ fun DevicesScreen(
                 }
             }
 
-            // Real discovered devices (or default compatible watches)
-            val displayList = if (discoveredDevices.isNotEmpty()) {
-                discoveredDevices
-            } else {
-                // Compatible known devices for testing/presentation
-                listOf(
-                    DiscoveredDevice(
-                        name = "Noise ColorFit Pro 5",
-                        address = "E4:5F:01:2A:3B:4C",
-                        rssi = -54,
-                        serviceUuids = emptyList(),
-                        manufacturerData = emptyMap(),
-                        bondState = 12,
-                        identified = true,
-                        deviceInfo = null
-                    ),
-                    DiscoveredDevice(
-                        name = "Noise ColorFit Ultra 3",
-                        address = "C2:88:45:90:11:AA",
-                        rssi = -68,
-                        serviceUuids = emptyList(),
-                        manufacturerData = emptyMap(),
-                        bondState = 10,
-                        identified = true,
-                        deviceInfo = null
-                    ),
-                    DiscoveredDevice(
-                        name = "boAt Wave Sigma",
-                        address = "AA:BB:CC:11:22:33",
-                        rssi = -72,
-                        serviceUuids = emptyList(),
-                        manufacturerData = emptyMap(),
-                        bondState = 10,
-                        identified = true,
-                        deviceInfo = null
-                    )
-                )
+            if (locationOff) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            Text(
+                                text = "Location is turned off",
+                                style = WatchFaceTypography.titleSmall,
+                                color = TextPrimary
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "This Android version returns no Bluetooth scan results while Location is off. Turn it on, then come back and scan again.",
+                                style = WatchFaceTypography.bodySmall,
+                                color = TextSecondary
+                            )
+                            Spacer(modifier = Modifier.height(10.dp))
+                            SecondaryButton(
+                                text = "Open Location settings",
+                                modifier = Modifier.fillMaxWidth(),
+                                onClick = {
+                                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
-            items(displayList) { device ->
-                val isConnected = primaryDevice?.bluetoothAddress == device.address || primaryDevice?.name == device.name
+            (connectionState as? ConnectionState.Failed)?.let { failed ->
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column {
+                            Text(
+                                text = "Could not connect",
+                                style = WatchFaceTypography.titleSmall,
+                                color = Color(0xFFEF4444)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = failed.reason,
+                                style = WatchFaceTypography.bodySmall,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Only display results received from the real BLE scanner.
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (showAllDevices) "Showing all nearby BLE devices" else "Showing nearby watches only",
+                        style = WatchFaceTypography.bodySmall,
+                        color = TextSecondary
+                    )
+                    androidx.compose.material3.Switch(
+                        checked = showAllDevices,
+                        onCheckedChange = { viewModel.setShowAllDevices(it) }
+                    )
+                }
+            }
+
+            if (discoveredDevices.isEmpty() && !isScanning && bluetoothState != BluetoothState.DISABLED) {
+                item {
+                    GlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(if (showAllDevices) "No nearby devices found" else "No nearby watches found", style = WatchFaceTypography.titleSmall, color = TextPrimary)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                "Keep the watch awake and close to the phone, disconnect it from other apps if needed, then scan again. Turn on the switch to see all BLE devices.",
+                                style = WatchFaceTypography.bodySmall,
+                                color = TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+
+            // A connected watch stops advertising, so it would vanish from the scan list.
+            val connectedNow = connectionState as? ConnectionState.Connected
+            if (connectedNow != null && discoveredDevices.none { it.address == connectedNow.device.address }) {
+                item(key = "connected-${connectedNow.device.address}") {
+                    DeviceCardItem(
+                        name = primaryDevice?.takeIf { it.bluetoothAddress == connectedNow.device.address }?.name
+                            ?: "Connected watch",
+                        address = connectedNow.device.address,
+                        rssi = 0,
+                        isConnected = true,
+                        batteryPercent = gattInfo?.batteryPercent,
+                        onClick = { viewModel.disconnect() }
+                    )
+                }
+            }
+
+            items(discoveredDevices, key = { it.address }) { device ->
+                val connectedDevice = connectionState as? com.watchfacestudio.app.bluetooth.connection.ConnectionState.Connected
+                val isConnected = connectedDevice?.device?.address == device.address
                 DeviceCardItem(
-                    name = device.name ?: "Smartwatch",
+                    name = device.name?.takeIf { it.isNotBlank() } ?: "Unnamed device",
                     address = device.address,
+                    rssi = device.rssi,
                     isConnected = isConnected,
-                    onClick = { viewModel.connectToDevice(device) }
+                    isConnecting = connectingAddress == device.address,
+                    batteryPercent = if (isConnected) gattInfo?.batteryPercent else null,
+                    onClick = {
+                        if (isConnected) viewModel.disconnect() else viewModel.connectToDevice(device)
+                    }
                 )
             }
 
@@ -302,7 +389,7 @@ fun RadarPulseAnimation(isScanning: Boolean) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = Icons.Default.Watch,
+                imageVector = Icons.Default.Bluetooth,
                 contentDescription = null,
                 tint = Color.White,
                 modifier = Modifier.size(32.dp)
@@ -315,7 +402,10 @@ fun RadarPulseAnimation(isScanning: Boolean) {
 fun DeviceCardItem(
     name: String,
     address: String,
+    rssi: Int,
     isConnected: Boolean,
+    isConnecting: Boolean = false,
+    batteryPercent: Int? = null,
     onClick: () -> Unit
 ) {
     GlassCard(
@@ -336,7 +426,7 @@ fun DeviceCardItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Watch,
+                    imageVector = Icons.Default.Bluetooth,
                     contentDescription = null,
                     tint = if (isConnected) Primary else TextSecondary,
                     modifier = Modifier.size(26.dp)
@@ -352,29 +442,26 @@ fun DeviceCardItem(
                     color = TextPrimary
                 )
                 Spacer(modifier = Modifier.height(3.dp))
-                if (isConnected) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = "Connected",
-                            style = WatchFaceTypography.labelSmall,
-                            color = Success
-                        )
-                        Text(
-                            text = " • 78%",
-                            style = WatchFaceTypography.labelSmall,
-                            color = TextSecondary
-                        )
-                    }
-                } else {
-                    Text(
-                        text = "Tap to connect",
-                        style = WatchFaceTypography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
+                Text(
+                    text = when {
+                        isConnecting -> "Connecting..."
+                        isConnected -> "Connected" +
+                            (batteryPercent?.let { " • Battery $it%" } ?: "") +
+                            " • Tap to disconnect"
+                        else -> "Signal $rssi dBm • Tap to connect"
+                    },
+                    style = WatchFaceTypography.bodySmall,
+                    color = if (isConnected) Success else TextSecondary
+                )
             }
 
-            if (isConnected) {
+            if (isConnecting) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(22.dp),
+                    color = Primary,
+                    strokeWidth = 2.dp
+                )
+            } else if (isConnected) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle,
                     contentDescription = "Connected",

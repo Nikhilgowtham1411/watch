@@ -20,10 +20,12 @@ class WatchFaceExporter(
     suspend fun exportWatchFace(
         design: DesignEntity,
         timeText: String = "10:08",
-        dateText: String = "Mon, Nov 16"
+        dateText: String = "Mon, Nov 16",
+        targetWidth: Int? = null,
+        targetHeight: Int? = null
     ): File = withContext(Dispatchers.IO) {
-        val width = design.canvasWidth.coerceAtLeast(240)
-        val height = design.canvasHeight.coerceAtLeast(240)
+        val width = (targetWidth?.takeIf { it > 0 } ?: design.canvasWidth).coerceIn(240, 2048)
+        val height = (targetHeight?.takeIf { it > 0 } ?: design.canvasHeight).coerceIn(240, 2048)
 
         val outputBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(outputBitmap)
@@ -39,9 +41,20 @@ class WatchFaceExporter(
                 inputStream?.close()
 
                 if (bgBitmap != null) {
-                    val srcRect = Rect(0, 0, bgBitmap.width, bgBitmap.height)
-                    val dstRect = Rect(0, 0, width, height)
-                    canvas.drawBitmap(bgBitmap, srcRect, dstRect, null)
+                    // Center-crop artwork to preserve proportions on different watch displays.
+                    val sourceAspect = bgBitmap.width.toFloat() / bgBitmap.height.toFloat()
+                    val targetAspect = width.toFloat() / height.toFloat()
+                    val srcRect = if (sourceAspect > targetAspect) {
+                        val cropWidth = (bgBitmap.height * targetAspect).toInt().coerceAtLeast(1)
+                        val left = (bgBitmap.width - cropWidth) / 2
+                        Rect(left, 0, left + cropWidth, bgBitmap.height)
+                    } else {
+                        val cropHeight = (bgBitmap.width / targetAspect).toInt().coerceAtLeast(1)
+                        val top = (bgBitmap.height - cropHeight) / 2
+                        Rect(0, top, bgBitmap.width, top + cropHeight)
+                    }
+                    canvas.drawBitmap(bgBitmap, srcRect, Rect(0, 0, width, height), null)
+                    bgBitmap.recycle()
                 }
             } catch (e: Exception) {
                 canvas.drawColor(android.graphics.Color.DKGRAY)

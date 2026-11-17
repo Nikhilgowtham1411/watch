@@ -10,7 +10,9 @@ data class DiscoveredDevice(
     val manufacturerData: Map<Int, ByteArray>,
     val bondState: Int,
     val identified: Boolean,
-    val deviceInfo: DeviceIdentification?
+    val deviceInfo: DeviceIdentification?,
+    /** Wall-clock time of the last advertisement received from this device. */
+    val lastSeenMs: Long = System.currentTimeMillis()
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

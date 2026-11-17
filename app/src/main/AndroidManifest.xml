@@ -33,6 +33,16 @@
         android:name="android.hardware.bluetooth_le"
         android:required="false" />
 
+    <!-- Lets the app check which watch companion apps are installed (Android 11+). -->
+    <queries>
+        <package android:name="com.gonoise.fit" />
+        <package android:name="com.coveiot.crest" />
+        <package android:name="com.crrepa.band.dafit" />
+        <package android:name="com.huami.watch.hmwatchmanager" />
+        <package android:name="com.xiaomi.wearable" />
+        <package android:name="com.google.android.wearable.app" />
+    </queries>
+
     <application
         android:name=".WatchFaceStudioApp"
         android:allowBackup="true"

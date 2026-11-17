@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.watchfacestudio.app.data.local.db.entities.DesignEntity
 import com.watchfacestudio.app.data.local.db.entities.DeviceEntity
-import com.watchfacestudio.app.data.model.ScreenShape
 import com.watchfacestudio.app.data.repository.DesignRepository
 import com.watchfacestudio.app.data.repository.DeviceRepository
 import kotlinx.coroutines.flow.SharingStarted
@@ -23,29 +22,17 @@ class HomeViewModel(
         initialValue = emptyList()
     )
 
+    init {
+        // Remove the demo device seeded by older prototype builds.
+        viewModelScope.launch {
+            deviceRepository.removeDevice("default-noise-pro-5")
+        }
+    }
+
     val primaryDevice: StateFlow<DeviceEntity?> = deviceRepository.getPrimaryDevice().stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = null
     )
 
-    init {
-        viewModelScope.launch {
-            val device = DeviceEntity(
-                id = "default-noise-pro-5",
-                bluetoothAddress = "E4:5F:01:2A:3B:4C",
-                name = "Noise ColorFit Pro 5",
-                brand = "Noise",
-                model = "ColorFit Pro 5",
-                screenWidth = 410,
-                screenHeight = 502,
-                screenShape = ScreenShape.RECTANGULAR,
-                compatibilityStatus = "Compatible",
-                installMethod = "COMPANION_APP",
-                lastConnectedAt = System.currentTimeMillis(),
-                isPrimary = true
-            )
-            deviceRepository.saveDevice(device)
-        }
-    }
 }

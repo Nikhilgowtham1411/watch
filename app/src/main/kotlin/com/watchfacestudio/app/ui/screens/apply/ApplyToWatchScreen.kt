@@ -1,6 +1,9 @@
 package com.watchfacestudio.app.ui.screens.apply
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +27,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,9 +64,47 @@ fun ApplyToWatchScreen(
 ) {
     val applyState by viewModel.applyState.collectAsState()
     val design by viewModel.currentDesign.collectAsState()
+    val selectedDevice by viewModel.selectedDevice.collectAsState()
+    val displayWidth = selectedDevice?.screenWidth?.takeIf { it > 0 } ?: (design?.canvasWidth ?: 0)
+    val displayHeight = selectedDevice?.screenHeight?.takeIf { it > 0 } ?: (design?.canvasHeight ?: 0)
+    val displayAspect = if (displayWidth > 0 && displayHeight > 0) displayWidth.toFloat() / displayHeight.toFloat() else null
+    val displayShape = selectedDevice?.screenShape ?: design?.canvasShape ?: com.watchfacestudio.app.data.model.ScreenShape.RECTANGULAR
 
     LaunchedEffect(designId) {
         viewModel.startSync(designId)
+    }
+
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var handoffMessage by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+
+    fun handoff(share: Boolean) {
+        val d = design ?: return
+        if (busy) return
+        busy = true
+        scope.launch {
+            try {
+                val file = WatchFaceStudioApp.instance.container.watchFaceExporter.exportWatchFace(
+                    d,
+                    targetWidth = selectedDevice?.screenWidth?.takeIf { it > 0 },
+                    targetHeight = selectedDevice?.screenHeight?.takeIf { it > 0 }
+                )
+                val uri = com.watchfacestudio.app.export.WatchFaceShare.saveToGallery(context, file)
+                if (uri == null) {
+                    handoffMessage = "Could not save the image."
+                } else if (share) {
+                    com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, uri)
+                    handoffMessage = null
+                } else {
+                    handoffMessage = "Saved to Pictures/WatchFaceStudio at ${selectedDevice?.screenWidth?.takeIf { it > 0 } ?: d.canvasWidth} × ${selectedDevice?.screenHeight?.takeIf { it > 0 } ?: d.canvasHeight}. Open your watch companion app and select this image as its watch face."
+                }
+            } catch (e: Exception) {
+                handoffMessage = "Export failed: ${e.message}"
+            } finally {
+                busy = false
+            }
+        }
     }
 
     Column(
@@ -94,14 +136,17 @@ fun ApplyToWatchScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             // Watch Face Mockup
             WatchPreview(
-                modifier = Modifier.size(200.dp),
-                bezelWidth = 8.dp
+                screenShape = displayShape,
+                modifier = Modifier.size(width = 200.dp, height = if (displayAspect != null) (200f / displayAspect).coerceIn(100f, 400f).dp else 244.dp),
+                bezelWidth = 8.dp,
+                aspectRatioOverride = displayAspect
             ) {
                 Box(
                     modifier = Modifier
@@ -212,23 +257,127 @@ fun ApplyToWatchScreen(
                     )
                 }
 
+                is ApplyState.ReadyToSend -> {
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Success),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Watch face ready",
+                        style = WatchFaceTypography.headlineMedium,
+                        color = TextPrimary
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val companionLabel = state.companion?.label
+                    Text(
+                        text = "Saved as ${state.width} × ${state.height} in Pictures/WatchFaceStudio. " +
+                            if (companionLabel != null) {
+                                "Open $companionLabel, go to your watch's custom watch face / gallery option, and pick this image. $companionLabel sends it to ${state.watchName}."
+                            } else {
+                                "Open your watch's own app and pick this image as the watch face."
+                            },
+                        style = WatchFaceTypography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(28.dp))
+
+                    PrimaryButton(
+                        text = if (companionLabel != null) "Open $companionLabel" else "Send to watch app",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = {
+                            val pkg = state.companion?.packageName
+                            if (pkg != null) {
+                                com.watchfacestudio.app.export.WatchFaceShare.sendToCompanion(context, state.imageUri, pkg)
+                            } else {
+                                com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, state.imageUri)
+                            }
+                        }
+                    )
+
+                    if (companionLabel != null) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        SecondaryButton(
+                            text = "Choose another app",
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { com.watchfacestudio.app.export.WatchFaceShare.shareImage(context, state.imageUri) }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SecondaryButton(
+                        text = "Edit Design",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onEditAgainClick
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    SecondaryButton(
+                        text = "Done",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onDoneClick
+                    )
+                }
+
                 is ApplyState.Failed -> {
                     Text(
-                        text = "Synchronization Failed",
+                        text = if (state.reason.contains("format", ignoreCase = true) || state.reason.contains("protocol", ignoreCase = true)) "Device Connected • Install Not Supported Yet" else "Unable to Apply Watch Face",
                         style = WatchFaceTypography.headlineMedium,
                         color = Color(0xFFEF4444)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = state.reason,
+                        text = if (state.reason.contains("format", ignoreCase = true) || state.reason.contains("protocol", ignoreCase = true)) "Your watch is connected. Its display size is shown when a verified device profile is available. Direct watch-face installation needs the manufacturer's supported format or companion app. You can still edit and export your design." else state.reason,
                         style = WatchFaceTypography.bodyMedium,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(24.dp))
                     PrimaryButton(
-                        text = "Retry",
-                        onClick = { viewModel.startSync(designId) }
+                        text = "Send to watch app",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { handoff(share = true) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Save image to gallery",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = { handoff(share = false) }
+                    )
+                    handoffMessage?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(it, style = WatchFaceTypography.bodySmall, color = TextSecondary, textAlign = TextAlign.Center)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Back to Devices",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onBackClick
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    SecondaryButton(
+                        text = "Edit Design",
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = onEditAgainClick
                     )
                 }
             }

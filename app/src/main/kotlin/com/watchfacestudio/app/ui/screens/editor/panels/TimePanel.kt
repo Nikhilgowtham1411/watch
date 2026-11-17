@@ -186,7 +186,7 @@ fun TimePanel(
                         fontFamily = when (name) {
                             "Mono" -> FontFamily.Monospace
                             "Serif" -> FontFamily.Serif
-                            else -> FontFamily.Default
+                            else -> com.watchfacestudio.app.ui.theme.AppFontFamily
                         },
                         color = if (isSelected) Color.White else TextSecondary
                     )

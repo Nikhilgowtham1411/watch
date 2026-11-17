@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.BatteryFull
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Palette
@@ -53,7 +52,6 @@ import com.watchfacestudio.app.ui.theme.Background
 import com.watchfacestudio.app.ui.theme.CardBackground
 import com.watchfacestudio.app.ui.theme.Primary
 import com.watchfacestudio.app.ui.theme.SecondaryBackground
-import com.watchfacestudio.app.ui.theme.Success
 import com.watchfacestudio.app.ui.theme.TextPrimary
 import com.watchfacestudio.app.ui.theme.TextSecondary
 import com.watchfacestudio.app.ui.theme.WatchFaceShapes
@@ -120,7 +118,7 @@ fun HomeScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = primaryDevice?.name ?: "No Watch Connected",
+                            text = primaryDevice?.name ?: "No device selected",
                             style = WatchFaceTypography.titleMedium,
                             color = TextPrimary
                         )
@@ -130,29 +128,14 @@ fun HomeScreen(
                                 modifier = Modifier
                                     .size(8.dp)
                                     .clip(CircleShape)
-                                    .background(if (primaryDevice != null) Success else TextSecondary)
+                                    .background(TextSecondary)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = if (primaryDevice != null) "Connected • BLE" else "Tap to pair",
+                                text = if (primaryDevice != null) "Saved device • reconnect to use" else "Connect a nearby device",
                                 style = WatchFaceTypography.labelSmall,
-                                color = if (primaryDevice != null) Success else TextSecondary
+                                color = TextSecondary
                             )
-                            if (primaryDevice != null) {
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Icon(
-                                    imageVector = Icons.Default.BatteryFull,
-                                    contentDescription = null,
-                                    tint = TextSecondary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "78%",
-                                    style = WatchFaceTypography.labelSmall,
-                                    color = TextSecondary
-                                )
-                            }
                         }
                     }
 
@@ -228,15 +211,11 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(12.dp))
 
             if (recentDesigns.isEmpty()) {
-                // Pre-canned mock previews for instant visual appeal
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(listOf("Mountain Sunset", "Neon Cyan", "Minimal AMOLED", "Cosmic Purple")) { title ->
-                        MockDesignCard(title = title, onClick = onCreateClick)
-                    }
-                }
+                Text(
+                    text = "Your saved designs will appear here.",
+                    style = WatchFaceTypography.bodySmall,
+                    color = TextSecondary
+                )
             } else {
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -250,25 +229,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // E. Watch Compatibility Information
-            GlassCard(
-                modifier = Modifier.fillMaxWidth(),
-                shape = WatchFaceShapes.large
-            ) {
-                Column {
-                    Text(
-                        text = "Compatibility Engine",
-                        style = WatchFaceTypography.titleSmall,
-                        color = TextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "Support for Noise, boAt, Fire-Boltt, Samsung Galaxy Watch (Wear OS), and Amazfit devices. Custom resolution and safe-area scaling enabled.",
-                        style = WatchFaceTypography.bodySmall,
-                        color = TextSecondary
-                    )
-                }
-            }
 
             Spacer(modifier = Modifier.height(80.dp)) // padding for bottom nav
         }

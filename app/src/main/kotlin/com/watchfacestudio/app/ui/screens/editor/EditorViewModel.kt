@@ -141,6 +141,14 @@ class EditorViewModel(
         }
     }
 
+    fun setBackgroundBlur(value: Float) {
+        _state.value = _state.value.copy(bgBlur = value.coerceIn(0f, 25f))
+    }
+
+    fun setBackgroundBrightness(value: Float) {
+        _state.value = _state.value.copy(bgBrightness = value.coerceIn(0.4f, 1.4f))
+    }
+
     fun setClockPosition(pos: ClockPosition) {
         saveUndoSnapshot()
         _state.value = _state.value.copy(clockPosition = pos)

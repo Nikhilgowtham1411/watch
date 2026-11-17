@@ -226,7 +226,11 @@ fun EditorScreen(
                     onBringForward = { viewModel.moveLayerForward(it) },
                     onSendBackward = { viewModel.moveLayerBackward(it) }
                 )
-                "BG" -> BackgroundPanel(state = state)
+                "BG" -> BackgroundPanel(
+                    state = state,
+                    onBlurChange = { viewModel.setBackgroundBlur(it) },
+                    onBrightnessChange = { viewModel.setBackgroundBrightness(it) }
+                )
             }
         }
     }

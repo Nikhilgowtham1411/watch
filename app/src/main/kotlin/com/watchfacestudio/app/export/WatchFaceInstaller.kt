@@ -1,14 +1,25 @@
 package com.watchfacestudio.app.export
 
 import android.content.Context
+import android.net.Uri
 import com.watchfacestudio.app.data.local.db.entities.DesignEntity
 import com.watchfacestudio.app.data.local.db.entities.DeviceEntity
-import kotlinx.coroutines.delay
 import java.io.File
 
 sealed class InstallResult {
+    /** Reserved for a verified direct BLE installer that the watch itself confirmed. */
     data class Success(val message: String, val watchName: String) : InstallResult()
-    data class OpenCompanion(val packageName: String?, val file: File) : InstallResult()
+
+    /** Face rendered at the watch's size and saved; the watch's own app does the final transfer. */
+    data class ReadyToSend(
+        val imageUri: Uri,
+        val file: File,
+        val width: Int,
+        val height: Int,
+        val companion: WatchCompanionApps.Companion?,
+        val watchName: String
+    ) : InstallResult()
+
     data class Error(val reason: String) : InstallResult()
 }
 
@@ -21,25 +32,39 @@ class WatchFaceInstaller(
         device: DeviceEntity?,
         onProgress: (Float, String) -> Unit
     ): InstallResult {
-        onProgress(0.15f, "Checking device connection...")
-        delay(400)
+        if (device == null) {
+            return InstallResult.Error("No watch selected. Open Devices and connect to your watch first.")
+        }
 
-        onProgress(0.40f, "Validating watch profile...")
-        delay(400)
+        val width = device.screenWidth.takeIf { it > 0 } ?: design.canvasWidth
+        val height = device.screenHeight.takeIf { it > 0 } ?: design.canvasHeight
 
-        onProgress(0.70f, "Rendering high-res watch face...")
-        val exportedFile = exporter.exportWatchFace(design)
-        delay(500)
+        onProgress(0.25f, "Rendering watch face (${width} × ${height})...")
+        val file = try {
+            exporter.exportWatchFace(
+                design,
+                targetWidth = device.screenWidth.takeIf { it > 0 },
+                targetHeight = device.screenHeight.takeIf { it > 0 }
+            )
+        } catch (e: Exception) {
+            return InstallResult.Error("Could not render the watch face: ${e.message}")
+        }
 
-        onProgress(0.90f, "Synchronizing watch face assets...")
-        delay(600)
+        onProgress(0.6f, "Saving image to your gallery...")
+        val uri = WatchFaceShare.saveToGallery(context, file)
+            ?: return InstallResult.Error("Could not save the image to the gallery.")
 
-        onProgress(1.0f, "Completed")
-        val watchName = device?.name ?: "Smartwatch"
+        onProgress(0.85f, "Looking for your watch app...")
+        val companion = WatchCompanionApps.resolveInstalled(context, device.name, device.installMethod)
 
-        return InstallResult.Success(
-            message = "Your custom watch face has been successfully synced to $watchName.",
-            watchName = watchName
+        onProgress(1f, "Ready")
+        return InstallResult.ReadyToSend(
+            imageUri = uri,
+            file = file,
+            width = width,
+            height = height,
+            companion = companion,
+            watchName = device.name
         )
     }
 }

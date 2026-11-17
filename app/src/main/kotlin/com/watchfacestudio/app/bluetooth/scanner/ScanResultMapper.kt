@@ -39,7 +39,7 @@ class ScanResultMapper(
 
         val info = deviceIdentifier.identifyDevice(partialDevice)
         return partialDevice.copy(
-            identified = true,
+            identified = info != null,
             deviceInfo = info
         )
     }

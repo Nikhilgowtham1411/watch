@@ -40,6 +40,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.watchfacestudio.app.WatchFaceStudioApp
@@ -186,6 +188,14 @@ fun SavedDesignCard(
                         .background(Color.Black),
                     contentAlignment = Alignment.Center
                 ) {
+                    if (!design.imagePath.isNullOrBlank()) {
+                        AsyncImage(
+                            model = design.imagePath,
+                            contentDescription = "Saved wallpaper",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                     Text(
                         text = "10:08",
                         style = WatchFaceTypography.headlineMedium.copy(fontSize = 18.sp),

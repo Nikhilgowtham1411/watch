@@ -30,6 +30,7 @@ fun WatchPreview(
     screenShape: ScreenShape = ScreenShape.RECTANGULAR,
     modifier: Modifier = Modifier,
     bezelWidth: Dp = 10.dp,
+    aspectRatioOverride: Float? = null,
     content: @Composable BoxScope.() -> Unit
 ) {
     val outerShape = when (screenShape) {
@@ -44,11 +45,13 @@ fun WatchPreview(
         ScreenShape.RECTANGULAR -> RoundedCornerShape(34.dp)
     }
 
-    val aspect = when (screenShape) {
+    val defaultAspect = when (screenShape) {
         ScreenShape.CIRCULAR -> 1.0f
         ScreenShape.SQUARE -> 1.0f
         ScreenShape.RECTANGULAR -> 0.82f // modern tall smartwatch ratio like Apple Watch / Noise Ultra
     }
+
+    val aspect = aspectRatioOverride?.takeIf { it in 0.5f..2.0f } ?: defaultAspect
 
     Box(
         modifier = modifier
