@@ -34,7 +34,7 @@ class DevicesViewModel(
     val isScanning: StateFlow<Boolean> = bleScanner.isScanning
     val discoveredDevices: StateFlow<List<DiscoveredDevice>> = bleScanner.discoveredDevices
 
-    private val _showAllDevices = MutableStateFlow(false)
+    private val _showAllDevices = MutableStateFlow(true)
     val showAllDevices: StateFlow<Boolean> = _showAllDevices.asStateFlow()
 
     /** Nearby devices, watches only unless the user asks to see everything. Strongest signal first. */
